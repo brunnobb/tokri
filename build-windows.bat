@@ -16,8 +16,30 @@ if exist "build\Desktop_Qt_6_12_0_MSVC2022_64bit_Release\Tokri.exe" (
 set OUTDIR=dist\Windows
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
-rem Deploy Qt
-windeployqt --dir "%OUTDIR%" "%EXE%"
+rem Resolve windeployqt from PATH or standard C:\Qt installation
+set "WINDEPLOYQT="
+where windeployqt >nul 2>nul
+if %errorlevel% equ 0 (
+    set "WINDEPLOYQT=windeployqt"
+) else if exist "C:\Qt\6.12.0\msvc2022_64\bin\windeployqt.exe" (
+    set "WINDEPLOYQT=C:\Qt\6.12.0\msvc2022_64\bin\windeployqt.exe"
+    set "PATH=C:\Qt\6.12.0\msvc2022_64\bin;%PATH%"
+) else (
+    for /d %%D in ("C:\Qt\6*") do (
+        if exist "%%D\msvc2022_64\bin\windeployqt.exe" (
+            set "WINDEPLOYQT=%%D\msvc2022_64\bin\windeployqt.exe"
+            set "PATH=%%D\msvc2022_64\bin;%PATH%"
+        )
+    )
+)
+
+if defined WINDEPLOYQT (
+    echo Using windeployqt: "!WINDEPLOYQT!"
+    "!WINDEPLOYQT!" --dir "%OUTDIR%" "%EXE%"
+) else (
+    echo Error: windeployqt.exe not found in PATH or C:\Qt.
+    exit /b 1
+)
 
 rem Copy exe to release (overwrite)
 copy /Y "%EXE%" "%OUTDIR%\Tokri.exe"
