@@ -30,6 +30,9 @@
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_WINDOW_CORNER_PREFERENCE
+#define DWMWA_WINDOW_CORNER_PREFERENCE 33
+#endif
 #endif
 
 TokriWindow::TokriWindow(QWidget *parent)
@@ -537,6 +540,9 @@ void TokriWindow::setChromeVisible(bool visible)
         show();
         move(prevPos);
         resize(prevSize);
+#ifdef Q_OS_WIN
+        updateWindowsTitleBarTheme(ThemeProvider::isDark());
+#endif
     }
 
     // When standard window decorations & menu bar are visible, hide the custom frameless header
@@ -783,6 +789,10 @@ void TokriWindow::updateWindowsTitleBarTheme(bool dark)
         // Fallback for Windows 10 build 1809 - 1909
         DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
     }
+
+    // Apply native modern rounded corners on Windows 11 (works for frameless and styled windows)
+    DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_ROUND;
+    DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
 }
 #endif
 
