@@ -22,4 +22,10 @@ windeployqt --dir "%OUTDIR%" "%EXE%"
 rem Copy exe to release (overwrite)
 copy /Y "%EXE%" "%OUTDIR%\Tokri.exe"
 
+rem Deploy WebP image format plugin
+if not exist "%OUTDIR%\imageformats" mkdir "%OUTDIR%\imageformats"
+if exist "C:\Qt\Tools\QtCreator\bin\plugins\imageformats\qwebp.dll" (
+    copy /Y "C:\Qt\Tools\QtCreator\bin\plugins\imageformats\qwebp.dll" "%OUTDIR%\imageformats\qwebp.dll"
+)
+
 endlocal
