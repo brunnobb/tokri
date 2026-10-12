@@ -153,6 +153,27 @@ public:
         return false;
     }
 
+    static bool isTaskbarDark()
+    {
+#if defined(Q_OS_WIN)
+        // SystemUsesLightTheme governs the Windows taskbar, start menu, and notification area
+        DWORD value = 1;
+        DWORD size = sizeof(value);
+        HKEY hKey;
+        if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                          L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            LONG res = RegQueryValueExW(hKey, L"SystemUsesLightTheme", nullptr, nullptr,
+                                         reinterpret_cast<LPBYTE>(&value), &size);
+            RegCloseKey(hKey);
+            if (res == ERROR_SUCCESS) {
+                return (value == 0);
+            }
+        }
+#endif
+        return isDark();
+    }
+
     static QPalette theme()
     {
         return isDark() ? ThemeProvider::dark() : ThemeProvider::light();

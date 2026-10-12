@@ -133,8 +133,21 @@ int main(int argc, char *argv[])
     }
 
 
-    QIcon icon(":/tray.png");
-    auto *tray = new QSystemTrayIcon(icon, &a);
+    const auto getTrayIcon = [] {
+        QPixmap pm(":/tray.png");
+        if (ThemeProvider::isTaskbarDark())
+            return QIcon(pm);
+        QPixmap light(pm.size());
+        light.fill(Qt::transparent);
+        QPainter p(&light);
+        p.drawPixmap(0, 0, pm);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(light.rect(), QColor("#141216"));
+        p.end();
+        return QIcon(light);
+    };
+
+    auto *tray = new QSystemTrayIcon(getTrayIcon(), &a);
     tray->setToolTip("Tokri");
     auto *menu = new QMenu();
     menu->addAction("&Open", &tokriWindow, &TokriWindow::wakeUp);
@@ -146,9 +159,10 @@ int main(int argc, char *argv[])
     menu->setPalette(a.palette());
     tray->setContextMenu(menu);
 
-    const auto applyTheme = [menu, &tokriWindow] {
+    const auto applyTheme = [menu, tray, getTrayIcon, &tokriWindow] {
         tokriWindow.applyTheme();
         menu->setPalette(tokriWindow.palette());
+        tray->setIcon(getTrayIcon());
     };
 
     QObject::connect(QGuiApplication::styleHints(),
