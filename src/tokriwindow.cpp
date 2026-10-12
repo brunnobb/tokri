@@ -57,6 +57,16 @@ TokriWindow::TokriWindow(QWidget *parent)
     auto *headerLayout = new QHBoxLayout(mHeaderBar);
     headerLayout->setContentsMargins(0, 0, 2, 0);
     headerLayout->setSpacing(0);
+
+    // Centered pill / drag handle line (resembling picture)
+    headerLayout->addStretch(1);
+
+    mDragHandle = new QFrame(mHeaderBar);
+    mDragHandle->setFixedHeight(4);
+    mDragHandle->setFixedWidth(64); // ~20% of window width, pill-shaped horizontal drag bar
+    mDragHandle->setCursor(Qt::SizeAllCursor);
+    headerLayout->addWidget(mDragHandle, 0, Qt::AlignCenter);
+
     headerLayout->addStretch(1);
 
     mCloseButton = new QToolButton(mHeaderBar);
@@ -754,6 +764,24 @@ void TokriWindow::applyTheme()
                 "QToolButton:pressed {"
                 "  background-color: rgba(190, 40, 40, 0.95);"
                 "  color: #ffffff;"
+                "}"
+            );
+        }
+    }
+
+    if (mDragHandle) {
+        if (dark) {
+            mDragHandle->setStyleSheet(
+                "QFrame {"
+                "  background-color: rgba(255, 255, 255, 0.40);"
+                "  border-radius: 2px;"
+                "}"
+            );
+        } else {
+            mDragHandle->setStyleSheet(
+                "QFrame {"
+                "  background-color: rgba(0, 0, 0, 0.22);"
+                "  border-radius: 2px;"
                 "}"
             );
         }

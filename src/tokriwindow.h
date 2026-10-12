@@ -73,6 +73,7 @@ private:
     QTimer mInactivityTimer;
 
     QWidget *mHeaderBar = nullptr;
+    QFrame *mDragHandle = nullptr;
     QToolButton *mCloseButton = nullptr;
 };
 #endif // TOKRIWINDOW_H
