@@ -16,6 +16,9 @@ if exist "build\Desktop_Qt_6_12_0_MSVC2022_64bit_Release\Tokri.exe" (
 set OUTDIR=dist\Windows
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
+rem Stop any running Tokri instance so files in dist\Windows are not locked
+taskkill /F /IM Tokri.exe >nul 2>nul
+
 rem Resolve windeployqt from PATH or standard C:\Qt installation
 set "WINDEPLOYQT="
 where windeployqt >nul 2>nul
