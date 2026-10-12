@@ -9,6 +9,7 @@
 #include <QCloseEvent>
 #include <QList>
 #include <QUrl>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -29,6 +30,9 @@ public:
 
 public slots:
     void applyTheme();
+    void setChromeVisible(bool visible);
+    void toggleChrome();
+    void resetInactivityTimer();
     void onShakeDetect();
     void deleteSelection();
     void renameSelection();
@@ -44,6 +48,9 @@ protected:
     void showEvent(QShowEvent *e) override;
     bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
     void closeEvent(QCloseEvent *e) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
 
 private:
     Ui::TokriWindow *ui;
@@ -53,8 +60,19 @@ private:
     void moveNearCursor();
     void openItem(QString filePath);
     QList<QUrl> selectedUrls() const;
+    void setWindowButtonsVisible(bool visible);
+    void onInactivityTimeout();
+
 #ifdef Q_OS_WIN
     void updateWindowsTitleBarTheme(bool dark);
 #endif
+
+    bool mChromeVisible = false;
+    bool mAltKeyPressedAlone = false;
+    QPoint mDragPosition;
+    QTimer mInactivityTimer;
+
+    QWidget *mHeaderBar = nullptr;
+    QToolButton *mCloseButton = nullptr;
 };
 #endif // TOKRIWINDOW_H
