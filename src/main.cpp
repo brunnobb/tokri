@@ -218,6 +218,10 @@ int main(int argc, char *argv[])
 
     ThumbnailProxyModel *thumbnailProxy = new ThumbnailProxyModel(&tokriWindow);
     thumbnailProxy->setSourceModel(fsModel);
+    QObject::connect(QGuiApplication::styleHints(),
+                     &QStyleHints::colorSchemeChanged,
+                     thumbnailProxy,
+                     &ThumbnailProxyModel::clearCache);
 
     QAction *pasteAction = new QAction(&tokriWindow);
     pasteAction->setShortcuts(QKeySequence::keyBindings(QKeySequence::Paste));

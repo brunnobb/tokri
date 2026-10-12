@@ -1,5 +1,6 @@
 #include "thumbnailproxymodel.h"
-
+#include "textfile.h"
+#include "themeprovider.h"
 #include "thumbnaillayout.h"
 
 #include <QApplication>
@@ -44,13 +45,16 @@ QImage loadImage(const QString &path, const QSize &target, qreal dpr)
     return image;
 }
 
-QImage loadPreview(const QString &path)
+QImage loadPreview(const QString &path, qreal dpr, bool isDark)
 {
     const QMimeType mime =
         QMimeDatabase().mimeTypeForFile(path, QMimeDatabase::MatchContent);
 
     if (mime.name().startsWith(QLatin1String("image/")))
-        return loadImage(path, ThumbnailSize, qApp->devicePixelRatio());
+        return loadImage(path, ThumbnailSize, dpr);
+
+    if (TextFile::isTextFile(path, &mime))
+        return TextFile::renderThumbnail(path, ThumbnailSize, dpr, isDark);
 
     return {};
 }
@@ -161,7 +165,18 @@ void ThumbnailProxyModel::dispatchPendingRequests()
                         dispatchPendingRequests();
                 });
 
+        const qreal dpr = qApp ? qApp->devicePixelRatio() : 1.0;
+        const bool isDark = ThemeProvider::isDark();
         watcher->setFuture(QtConcurrent::run(
-            [key] { return loadPreview(key); }));
+            [key, dpr, isDark] { return loadPreview(key, dpr, isDark); }));
     }
+}
+
+void ThumbnailProxyModel::clearCache()
+{
+    mCache.clear();
+    mFailedRequests.clear();
+    mInFlightRequests.clear();
+    if (rowCount() > 0)
+        emit dataChanged(index(0, 0), index(rowCount() - 1, 0), {Qt::DecorationRole});
 }

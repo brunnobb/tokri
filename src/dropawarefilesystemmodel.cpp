@@ -1,6 +1,7 @@
 #include "dropawarefilesystemmodel.h"
 
 #include "loghelpers.h"
+#include "textfile.h"
 
 namespace {
 
@@ -104,6 +105,25 @@ QVariant DropAwareFileSystemModel::data(const QModelIndex &index, int role) cons
     }
 
     if (role == Qt::ToolTipRole){
+        const QString path = filePath(index);
+        const QFileInfo fi = fileInfo(index);
+        if (!fi.isFile())
+            return fileName(index);
+
+        if (TextFile::isTextFile(path)) {
+            auto it = mToolTipCache.find(path);
+            if (it != mToolTipCache.end()
+                && it->lastModified == fi.lastModified()
+                && it->size == fi.size()) {
+                return it->text;
+            }
+
+            const QString snippet = TextFile::readTextSnippet(path, 1000, 25);
+            const QString tip = snippet.trimmed().isEmpty() ? fileName(index) : snippet;
+            mToolTipCache.insert(path, {fi.lastModified(), fi.size(), tip});
+            return tip;
+        }
+
         return fileName(index);
     }
 
