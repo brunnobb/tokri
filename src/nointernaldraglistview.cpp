@@ -1,6 +1,7 @@
 #include "nointernaldraglistview.h"
 
 #include "loghelpers.h"
+#include "themeprovider.h"
 
 #include <QDragEnterEvent>
 #include <QGuiApplication>
@@ -135,32 +136,63 @@ void NoInternalDragListView::paintEvent(QPaintEvent *e) {
         return;
 
     QPainter p(viewport());
+    p.setRenderHint(QPainter::Antialiasing, true);
 
-    QPixmap pm(":/background.png");
-    pm = pm.scaled(150, 150,
-                   Qt::KeepAspectRatio,
-                   Qt::SmoothTransformation);
+    QPixmap rawPm(":/background.png");
+    if (rawPm.isNull())
+        return;
 
-    const QString text =
-        "Drop files, folders, text, links, or images here.";
+    const bool isDark = ThemeProvider::isDark();
+    const QColor iconColor = isDark ? QColor(160, 150, 180, 140) : QColor(117, 55, 241, 140);
 
-    QFontMetrics fm(font());
-    int textHeight = fm.height();
-    int spacing = 8;
+    const int iconSize = 96;
+    QPixmap pm = rawPm.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
-    int totalHeight = pm.height() + spacing + textHeight;
+    // Tint icon to match theme
+    QPixmap tinted(pm.size());
+    tinted.fill(Qt::transparent);
+    {
+        QPainter tp(&tinted);
+        tp.drawPixmap(0, 0, pm);
+        tp.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        tp.fillRect(tinted.rect(), iconColor);
+    }
 
-    int startY = (height() - totalHeight) / 3;
+    const QString title = QStringLiteral("Basket is empty");
+    const QString subtitle = QStringLiteral("Drop files, text, or links here\nShake cursor to summon Tokri");
 
-    QPoint iconPos(width()/2 - pm.width()/2,
-                   startY);
-    p.drawPixmap(iconPos, pm);
+    QFont titleFont = font();
+    titleFont.setPointSize(11);
+    titleFont.setBold(true);
 
-    QRect textRect(0,
-                   startY + pm.height() + spacing,
-                   width(),
-                   textHeight);
+    QFont subtitleFont = font();
+    subtitleFont.setPointSize(8);
+    subtitleFont.setBold(false);
 
-    p.setPen(palette().color(QPalette::Text));
-    p.drawText(textRect, Qt::AlignHCenter, text);
+    QFontMetrics titleFm(titleFont);
+    QFontMetrics subtitleFm(subtitleFont);
+
+    const int titleH = titleFm.height();
+    const int subtitleH = subtitleFm.lineSpacing() * 2;
+    const int gap1 = 12; // gap between icon and title
+    const int gap2 = 6;  // gap between title and subtitle
+
+    const int totalContentH = tinted.height() + gap1 + titleH + gap2 + subtitleH;
+    const int startY = qMax(16, (viewport()->height() - totalContentH) / 2);
+
+    // Draw icon centered
+    const int iconX = (viewport()->width() - tinted.width()) / 2;
+    p.drawPixmap(iconX, startY, tinted);
+
+    // Draw title
+    p.setFont(titleFont);
+    p.setPen(palette().color(QPalette::WindowText));
+    const QRect titleRect(16, startY + tinted.height() + gap1, viewport()->width() - 32, titleH);
+    p.drawText(titleRect, Qt::AlignHCenter | Qt::AlignVCenter, title);
+
+    // Draw subtitle
+    p.setFont(subtitleFont);
+    p.setPen(palette().color(QPalette::PlaceholderText));
+    const QRect subtitleRect(16, titleRect.bottom() + gap2, viewport()->width() - 32, subtitleH);
+    p.drawText(subtitleRect, Qt::AlignHCenter | Qt::AlignTop, subtitle);
 }

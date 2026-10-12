@@ -28,6 +28,7 @@ public:
     void wakeUp();
 
 public slots:
+    void applyTheme();
     void onShakeDetect();
     void deleteSelection();
     void renameSelection();
@@ -37,6 +38,12 @@ public slots:
 
 signals:
     void pasteRequested();
+    void themeChanged(bool isDark);
+
+protected:
+    void showEvent(QShowEvent *e) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+    void closeEvent(QCloseEvent *e) override;
 
 private:
     Ui::TokriWindow *ui;
@@ -44,8 +51,10 @@ private:
     void init();
     void applyColumnSizing();
     void moveNearCursor();
-    void closeEvent(QCloseEvent *e);
     void openItem(QString filePath);
     QList<QUrl> selectedUrls() const;
+#ifdef Q_OS_WIN
+    void updateWindowsTitleBarTheme(bool dark);
+#endif
 };
 #endif // TOKRIWINDOW_H

@@ -180,6 +180,7 @@ endif()
 if(WIN32)
     target_link_libraries(Tokri PRIVATE
         user32
+        dwmapi
     )
 endif()
 

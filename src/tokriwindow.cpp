@@ -4,8 +4,10 @@
 #include "filereveal.h"
 #include "loghelpers.h"
 #include "standardpaths.h"
+#include "themeprovider.h"
 #include "thumbnaildelegate.h"
 #include "thumbnaillayout.h"
+#include "windowicons.h"
 #include <QDir>
 #include <QMenu>
 #include <QCloseEvent>
@@ -21,6 +23,10 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <dwmapi.h>
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
 #endif
 
 TokriWindow::TokriWindow(QWidget *parent)
@@ -31,6 +37,10 @@ TokriWindow::TokriWindow(QWidget *parent)
 
     init();
     setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
+
+    ui->centralwidget->layout()->setContentsMargins(6, 6, 6, 6);
+    ui->centralwidget->layout()->setSpacing(4);
+    applyTheme();
 
     ui->listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->listView->setItemDelegate(new ThumbnailDelegate(ui->listView));
@@ -199,6 +209,9 @@ void TokriWindow::wakeUp()
 {
     Logger &log = Logger::instance();
     log.push("wakeUp");
+
+    // Check and apply active system theme the moment the window opens
+    applyTheme();
 
     const bool minimized = isMinimized();
     const bool hidden = !isVisible();
@@ -434,5 +447,85 @@ void TokriWindow::closeEvent(QCloseEvent *e)
     sleep();
 
     log.pop();
+}
+
+void TokriWindow::showEvent(QShowEvent *e)
+{
+    QMainWindow::showEvent(e);
+    // Check and apply active system theme the moment the window opens
+    applyTheme();
+}
+
+void TokriWindow::applyTheme()
+{
+    const bool dark = ThemeProvider::isDark();
+    const QPalette pal = ThemeProvider::theme();
+
+    QApplication::setPalette(pal);
+    setPalette(pal);
+
+    if (ui->centralwidget)
+        ui->centralwidget->setPalette(pal);
+
+    if (ui->listView) {
+        ui->listView->setPalette(pal);
+        ui->listView->viewport()->setPalette(pal);
+    }
+
+    if (ui->menuBar)
+        ui->menuBar->setPalette(pal);
+
+    if (ui->menuView)
+        ui->menuView->setPalette(pal);
+
+#ifdef Q_OS_WIN
+    updateWindowsTitleBarTheme(dark);
+#endif
+    // Note for macOS:
+    // macOS AppKit manages window title bar chrome automatically based on NSAppearance.
+    // Note for Linux:
+    // Linux window managers (KWin, Mutter) theme title bars via XDG/portal settings.
+
+    WindowIcons::apply(*qApp, *this);
+
+    emit themeChanged(dark);
+
+    update();
+    if (ui->listView)
+        ui->listView->viewport()->update();
+}
+
+#ifdef Q_OS_WIN
+void TokriWindow::updateWindowsTitleBarTheme(bool dark)
+{
+    HWND hwnd = reinterpret_cast<HWND>(winId());
+    if (!hwnd)
+        return;
+
+    BOOL darkMode = dark ? TRUE : FALSE;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE is supported on Windows 11 and Windows 10 build 19041+
+    if (FAILED(DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &darkMode, sizeof(darkMode)))) {
+        // Fallback for Windows 10 build 1809 - 1909
+        DwmSetWindowAttribute(hwnd, 19, &darkMode, sizeof(darkMode));
+    }
+}
+#endif
+
+bool TokriWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+#ifdef Q_OS_WIN
+    if (eventType == "windows_generic_MSG") {
+        MSG *msg = static_cast<MSG *>(message);
+        if (msg->message == WM_SETTINGCHANGE) {
+            // Windows sends WM_SETTINGCHANGE when system theme (AppsUseLightTheme) changes
+            applyTheme();
+        }
+    }
+#else
+    Q_UNUSED(eventType);
+    Q_UNUSED(message);
+    Q_UNUSED(result);
+#endif
+    return QMainWindow::nativeEvent(eventType, message, result);
 }
 

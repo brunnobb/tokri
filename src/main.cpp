@@ -146,15 +146,14 @@ int main(int argc, char *argv[])
     menu->setPalette(a.palette());
     tray->setContextMenu(menu);
 
-    const auto applyTheme = [&a, menu, &tokriWindow] {
-        a.setPalette(ThemeProvider::theme());
-        WindowIcons::apply(a, tokriWindow);
-        menu->setPalette(a.palette());
+    const auto applyTheme = [menu, &tokriWindow] {
+        tokriWindow.applyTheme();
+        menu->setPalette(tokriWindow.palette());
     };
 
     QObject::connect(QGuiApplication::styleHints(),
                      &QStyleHints::colorSchemeChanged,
-                     tray,
+                     &tokriWindow,
                      [applyTheme](Qt::ColorScheme) {
                          applyTheme();
                      });
@@ -220,6 +219,10 @@ int main(int argc, char *argv[])
     thumbnailProxy->setSourceModel(fsModel);
     QObject::connect(QGuiApplication::styleHints(),
                      &QStyleHints::colorSchemeChanged,
+                     thumbnailProxy,
+                     &ThumbnailProxyModel::clearCache);
+    QObject::connect(&tokriWindow,
+                     &TokriWindow::themeChanged,
                      thumbnailProxy,
                      &ThumbnailProxyModel::clearCache);
 
