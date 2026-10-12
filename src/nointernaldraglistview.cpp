@@ -6,6 +6,7 @@
 #include <QDragEnterEvent>
 #include <QGuiApplication>
 #include <QMouseEvent>
+#include <QPainterPath>
 
 namespace {
 
@@ -19,7 +20,31 @@ void preferCopy(QDropEvent *e)
 
 }
 
-NoInternalDragListView::NoInternalDragListView() {}
+NoInternalDragListView::NoInternalDragListView()
+{
+    connect(&mDragAnimationTimer, &QTimer::timeout, this, [this] {
+        mDashOffset += 0.8;
+        if (mDashOffset >= 10.0)
+            mDashOffset -= 10.0;
+        viewport()->update();
+    });
+}
+
+void NoInternalDragListView::setDragHovering(bool hovering)
+{
+    if (mIsDragHovering == hovering)
+        return;
+
+    mIsDragHovering = hovering;
+    if (mIsDragHovering) {
+        mDashOffset = 0.0;
+        mDragAnimationTimer.start(30); // ~33 FPS
+    } else {
+        mDragAnimationTimer.stop();
+        mDashOffset = 0.0;
+    }
+    viewport()->update();
+}
 
 void NoInternalDragListView::startDrag(Qt::DropActions supportedActions)
 {
@@ -54,9 +79,10 @@ NoInternalDragListView::selectionCommand(const QModelIndex &index,
 void NoInternalDragListView::dragEnterEvent(QDragEnterEvent *e)
 {
     const bool isSelf = e->source() == this;
-    if (isSelf)
+    if (isSelf) {
         e->ignore();
-    else {
+    } else {
+        setDragHovering(true);
         emit dropping(true);
         QListView::dragEnterEvent(e);
         preferCopy(e);
@@ -66,9 +92,11 @@ void NoInternalDragListView::dragEnterEvent(QDragEnterEvent *e)
 void NoInternalDragListView::dragMoveEvent(QDragMoveEvent *e)
 {
     const bool isSelf = e->source() == this;
-    if (isSelf)
+    if (isSelf) {
         e->ignore();
-    else {
+    } else {
+        if (!mIsDragHovering)
+            setDragHovering(true);
         QListView::dragMoveEvent(e);
         preferCopy(e);
     }
@@ -80,6 +108,7 @@ void NoInternalDragListView::dragLeaveEvent(QDragLeaveEvent *e)
     log.push("dragLeave");
     log.log() << "leave";
 
+    setDragHovering(false);
     emit dropping(false);
 
     QListView::dragLeaveEvent(e);
@@ -96,6 +125,8 @@ void NoInternalDragListView::dropEvent(QDropEvent *e)
               << "dropAction=" << e->dropAction()
               << "possibleActions=" << e->possibleActions()
               << "formats=" << e->mimeData()->formats();
+
+    setDragHovering(false);
     emit dropping(false);
 
     e->setDropAction(Qt::CopyAction);
@@ -132,67 +163,132 @@ void NoInternalDragListView::paintEvent(QPaintEvent *e) {
     QListView::paintEvent(e);
 
     auto *m = model();
-    if (!m || m->rowCount(rootIndex()) > 0)
-        return;
+    const bool isEmpty = (!m || m->rowCount(rootIndex()) == 0);
+
+    const QRectF dropRect = viewport()->rect().adjusted(16, 16, -16, -16);
 
     QPainter p(viewport());
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    QPixmap rawPm(":/background.png");
-    if (rawPm.isNull())
-        return;
+    if (isEmpty) {
+        if (mIsDragHovering) {
+            drawDropFeedback(p, dropRect);
+        }
+        drawEmptyState(p);
+    } else if (mIsDragHovering) {
+        drawDropFeedback(p, dropRect);
+    }
+}
 
+void NoInternalDragListView::drawDropFeedback(QPainter &p, const QRectF &rect)
+{
     const bool isDark = ThemeProvider::isDark();
-    const QColor iconColor = isDark ? QColor(160, 150, 180, 140) : QColor(117, 55, 241, 140);
 
-    const int iconSize = 96;
-    QPixmap pm = rawPm.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    // Soft bluish background fill
+    const QColor bgHighlight = isDark ? QColor(24, 46, 78, 170)
+                                      : QColor(230, 242, 255, 185);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bgHighlight);
+    p.drawRoundedRect(rect, 14.0, 14.0);
 
-    // Tint icon to match theme
-    QPixmap tinted(pm.size());
-    tinted.fill(Qt::transparent);
-    {
-        QPainter tp(&tinted);
-        tp.drawPixmap(0, 0, pm);
-        tp.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        tp.fillRect(tinted.rect(), iconColor);
+    // Animated dashed border
+    const QColor borderColor = isDark ? QColor(82, 155, 255)
+                                      : QColor(56, 132, 255);
+    QPen dashPen(borderColor, 2.0, Qt::CustomDashLine, Qt::RoundCap, Qt::RoundJoin);
+    dashPen.setDashPattern({5.0, 4.0});
+    dashPen.setDashOffset(mDashOffset);
+
+    p.setPen(dashPen);
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(rect, 14.0, 14.0);
+}
+
+void NoInternalDragListView::drawEmptyState(QPainter &p)
+{
+    const bool isDark = ThemeProvider::isDark();
+    const qreal centerX = viewport()->width() / 2.0;
+
+    // Document icon geometry (clean vector representation from Image 1)
+    const qreal iconW = 46.0;
+    const qreal iconH = 58.0;
+    const qreal foldSize = 14.0;
+    const qreal cornerRadius = 5.0;
+
+    const QString line1 = QStringLiteral("Drop Your File(s)");
+    const QString line2 = QStringLiteral("Here");
+
+    QFont textFont = font();
+    textFont.setPointSize(12);
+    textFont.setWeight(QFont::Medium);
+    const QFontMetrics fm(textFont);
+
+    const int lineSpacing = fm.lineSpacing();
+    const int totalTextH = lineSpacing * 2;
+    const int gap = 16;
+    const int totalContentH = int(iconH) + gap + totalTextH;
+
+    const qreal startY = qMax(24.0, (viewport()->height() - totalContentH) / 2.0);
+    const qreal iconLeft = centerX - iconW / 2.0;
+    const qreal iconTop = startY;
+
+    // Color based on theme and hover state
+    QColor strokeColor;
+    QColor textColor;
+    if (mIsDragHovering) {
+        strokeColor = isDark ? QColor(90, 162, 255) : QColor(43, 114, 235);
+        textColor   = isDark ? QColor(90, 162, 255) : QColor(43, 114, 235);
+    } else {
+        strokeColor = isDark ? QColor(215, 212, 224) : QColor(48, 44, 56);
+        textColor   = isDark ? QColor(170, 165, 180) : QColor(110, 105, 120);
     }
 
-    const QString title = QStringLiteral("Basket is empty");
-    const QString subtitle = QStringLiteral("Drop files, text, or links here\nShake cursor to summon Tokri");
+    QPen pen(strokeColor, 2.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
 
-    QFont titleFont = font();
-    titleFont.setPointSize(11);
-    titleFont.setBold(true);
+    // Document body with top-right fold
+    QPainterPath docPath;
+    docPath.moveTo(iconLeft, iconTop + cornerRadius);
+    docPath.quadTo(iconLeft, iconTop, iconLeft + cornerRadius, iconTop);
+    docPath.lineTo(iconLeft + iconW - foldSize, iconTop);
+    docPath.lineTo(iconLeft + iconW, iconTop + foldSize);
+    docPath.lineTo(iconLeft + iconW, iconTop + iconH - cornerRadius);
+    docPath.quadTo(iconLeft + iconW, iconTop + iconH, iconLeft + iconW - cornerRadius, iconTop + iconH);
+    docPath.lineTo(iconLeft + cornerRadius, iconTop + iconH);
+    docPath.quadTo(iconLeft, iconTop + iconH, iconLeft, iconTop + iconH - cornerRadius);
+    docPath.closeSubpath();
+    p.drawPath(docPath);
 
-    QFont subtitleFont = font();
-    subtitleFont.setPointSize(8);
-    subtitleFont.setBold(false);
+    // Fold flap
+    QPainterPath foldPath;
+    foldPath.moveTo(iconLeft + iconW - foldSize, iconTop);
+    foldPath.lineTo(iconLeft + iconW - foldSize, iconTop + foldSize);
+    foldPath.lineTo(iconLeft + iconW, iconTop + foldSize);
+    p.drawPath(foldPath);
 
-    QFontMetrics titleFm(titleFont);
-    QFontMetrics subtitleFm(subtitleFont);
+    // Upward arrow positioned in bottom-right of the document
+    const qreal arrowX = iconLeft + iconW - 10.0;
+    const qreal arrowBottom = iconTop + iconH + 3.0;
+    const qreal arrowTop = iconTop + iconH - 22.0;
 
-    const int titleH = titleFm.height();
-    const int subtitleH = subtitleFm.lineSpacing() * 2;
-    const int gap1 = 12; // gap between icon and title
-    const int gap2 = 6;  // gap between title and subtitle
+    // Arrow vertical shaft
+    p.drawLine(QPointF(arrowX, arrowBottom), QPointF(arrowX, arrowTop));
 
-    const int totalContentH = tinted.height() + gap1 + titleH + gap2 + subtitleH;
-    const int startY = qMax(16, (viewport()->height() - totalContentH) / 2);
+    // Arrowhead (pointing up)
+    QPainterPath headPath;
+    headPath.moveTo(arrowX - 6.0, arrowTop + 7.0);
+    headPath.lineTo(arrowX, arrowTop);
+    headPath.lineTo(arrowX + 6.0, arrowTop + 7.0);
+    p.drawPath(headPath);
 
-    // Draw icon centered
-    const int iconX = (viewport()->width() - tinted.width()) / 2;
-    p.drawPixmap(iconX, startY, tinted);
+    // Text: "Drop Your File(s)" / "Here"
+    p.setFont(textFont);
+    p.setPen(textColor);
 
-    // Draw title
-    p.setFont(titleFont);
-    p.setPen(palette().color(QPalette::WindowText));
-    const QRect titleRect(16, startY + tinted.height() + gap1, viewport()->width() - 32, titleH);
-    p.drawText(titleRect, Qt::AlignHCenter | Qt::AlignVCenter, title);
+    const qreal textTop = iconTop + iconH + gap;
+    const QRectF line1Rect(16.0, textTop, viewport()->width() - 32.0, lineSpacing);
+    const QRectF line2Rect(16.0, textTop + lineSpacing, viewport()->width() - 32.0, lineSpacing);
 
-    // Draw subtitle
-    p.setFont(subtitleFont);
-    p.setPen(palette().color(QPalette::PlaceholderText));
-    const QRect subtitleRect(16, titleRect.bottom() + gap2, viewport()->width() - 32, subtitleH);
-    p.drawText(subtitleRect, Qt::AlignHCenter | Qt::AlignTop, subtitle);
+    p.drawText(line1Rect, Qt::AlignHCenter | Qt::AlignVCenter, line1);
+    p.drawText(line2Rect, Qt::AlignHCenter | Qt::AlignVCenter, line2);
 }
