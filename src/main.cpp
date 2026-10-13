@@ -54,7 +54,15 @@
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_LINUX
-    qputenv("QT_QPA_PLATFORM", "xcb");
+    // Allow native Wayland when running on a Wayland compositor session (e.g. GNOME/KDE Wayland),
+    // eliminating XWayland drag-and-drop bridging issues with native Wayland apps like Firefox and Nautilus.
+    // Falls back to xcb on pure X11 sessions, and respects any user-set QT_QPA_PLATFORM.
+    if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM")) {
+        const bool isWayland = qEnvironmentVariableIsSet("WAYLAND_DISPLAY");
+        if (!isWayland) {
+            qputenv("QT_QPA_PLATFORM", "xcb");
+        }
+    }
 #endif
     QApplication a(argc, argv);
     a.setQuitOnLastWindowClosed(false);

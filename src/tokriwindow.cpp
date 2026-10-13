@@ -23,6 +23,7 @@
 #include <QUrl>
 #include <QToolButton>
 #include <QHBoxLayout>
+#include <QWindow>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -600,6 +601,14 @@ void TokriWindow::setWindowButtonsVisible(bool visible)
 void TokriWindow::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        QWindow *win = windowHandle();
+        if (!win && window()) {
+            win = window()->windowHandle();
+        }
+        if (win && win->startSystemMove()) {
+            event->accept();
+            return;
+        }
         mDragPosition = event->globalPosition().toPoint() - frameGeometry().topLeft();
         event->accept();
         return;
@@ -646,8 +655,15 @@ bool TokriWindow::eventFilter(QObject *watched, QEvent *event)
                 if (event->type() == QEvent::MouseButtonPress) {
                     auto *me = static_cast<QMouseEvent *>(event);
                     if (me->button() == Qt::LeftButton) {
-                        mDragPosition = me->globalPosition().toPoint() - frameGeometry().topLeft();
                         resetInactivityTimer();
+                        QWindow *win = windowHandle();
+                        if (!win && window()) {
+                            win = window()->windowHandle();
+                        }
+                        if (win && win->startSystemMove()) {
+                            return true;
+                        }
+                        mDragPosition = me->globalPosition().toPoint() - frameGeometry().topLeft();
                         return true;
                     }
                 } else if (event->type() == QEvent::MouseMove) {

@@ -48,17 +48,39 @@ void NoInternalDragListView::setDragHovering(bool hovering)
 
 void NoInternalDragListView::startDrag(Qt::DropActions supportedActions)
 {
+    Logger &log = Logger::instance();
+    log.push("startDrag");
+
     const Qt::KeyboardModifiers mods = QGuiApplication::keyboardModifiers();
 #ifdef Q_OS_MACOS
-    const bool copy = mods.testFlag(Qt::AltModifier);
-    if (copy) {
-        supportedActions = Qt::CopyAction;
-    }
+    const bool forceCopy = mods.testFlag(Qt::AltModifier);
 #else
-    const bool copy = mods.testFlag(Qt::ControlModifier);
+    const bool forceCopy = mods.testFlag(Qt::ControlModifier);
 #endif
-    setDefaultDropAction(copy ? Qt::CopyAction : Qt::MoveAction);
+
+    // If modifier is held, only allow copy (prevent moving).
+    // Otherwise allow both Copy and Move so targets that only accept Copy
+    // (such as web browsers like Firefox, Discord, text fields) or targets
+    // that accept Move (such as file managers) can negotiate the drop.
+    if (forceCopy) {
+        supportedActions = Qt::CopyAction;
+    } else {
+        supportedActions = Qt::CopyAction | Qt::MoveAction;
+    }
+
+    // Default proposed action is CopyAction. This ensures that applications
+    // that strictly reject MoveAction (e.g., Firefox, Chromium, web dropzones,
+    // document viewers) will accept the drag. Targets that support MoveAction
+    // can still choose to execute a Move.
+    setDefaultDropAction(Qt::CopyAction);
+
+    log.log() << "startDrag supportedActions=" << supportedActions
+              << "defaultDropAction=" << defaultDropAction()
+              << "forceCopy=" << forceCopy;
+
     QListView::startDrag(supportedActions);
+
+    log.pop();
 }
 
 QItemSelectionModel::SelectionFlags
