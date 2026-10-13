@@ -51,6 +51,7 @@ void WindowIcons::apply(QApplication &app, QWidget &window)
     windowIcon.addPixmap(switcher.pixmap(128, 128));
     windowIcon.addPixmap(switcher.pixmap(256, 256));
     app.setWindowIcon(windowIcon);
+    window.setWindowIcon(windowIcon);
 #else
     app.setWindowIcon(tray);
     window.setWindowIcon(tray);
