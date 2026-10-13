@@ -334,7 +334,11 @@ void TokriWindow::moveNearCursor()
     const QSize  winSize = size();
     QPoint p(cursor.x() + 20, cursor.y() + 20);
 
-    const QRect screen = QGuiApplication::screenAt(cursor)->availableGeometry();
+    QScreen *targetScreen = QGuiApplication::screenAt(cursor);
+    if (!targetScreen)
+        targetScreen = QGuiApplication::primaryScreen();
+    const QRect screen = targetScreen ? targetScreen->availableGeometry()
+                                      : QRect(0, 0, 1920, 1080);
 
     if (p.x() + winSize.width() > screen.right())
         p.setX(screen.right() - winSize.width());

@@ -1,15 +1,17 @@
 #ifndef TOKRIWINDOW_H
 #define TOKRIWINDOW_H
 
-#include <QListView>
-#include <QMainWindow>
+#include <QCloseEvent>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
-#include <QMimeData>
-#include <QCloseEvent>
+#include <QFrame>
 #include <QList>
-#include <QUrl>
+#include <QListView>
+#include <QMainWindow>
+#include <QMimeData>
 #include <QTimer>
+#include <QToolButton>
+#include <QUrl>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
