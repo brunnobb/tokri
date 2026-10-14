@@ -2,6 +2,7 @@
 #include "./ui_tokriwindow.h"
 #include "dropawarefilesystemmodel.h"
 #include "filereveal.h"
+#include "fullscreenhelper.h"
 #include "loghelpers.h"
 #include "standardpaths.h"
 #include "themeprovider.h"
@@ -358,6 +359,12 @@ void TokriWindow::onShakeDetect()
     Logger &log = Logger::instance();
     log.push("onShakeDetect");
     log.log() << "shake";
+
+    if (FullscreenHelper::isForegroundFullscreenOrGaming(this)) {
+        log.log() << "Shake ignored: foreground application is fullscreen or gaming";
+        log.pop();
+        return;
+    }
 
     wakeUp();
 

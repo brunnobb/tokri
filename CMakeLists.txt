@@ -38,6 +38,8 @@ set(PROJECT_SOURCES
         src/windowicons.cpp
         src/filereveal.h
         src/filereveal.cpp
+        src/fullscreenhelper.h
+        src/fullscreenhelper.cpp
 )
 
 set(LINUX_SOURCES "")
@@ -174,6 +176,8 @@ target_compile_definitions(Tokri PRIVATE TOKRI_VERSION="${PROJECT_VERSION}")
 if(APPLE)
     target_link_libraries(Tokri PRIVATE
         "-framework CoreGraphics"
+        "-framework ApplicationServices"
+        "-framework Cocoa"
     )
 endif()
 
@@ -182,6 +186,7 @@ if(WIN32)
         user32
         dwmapi
         windowscodecs
+        shell32
     )
 endif()
 

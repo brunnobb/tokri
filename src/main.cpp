@@ -12,6 +12,7 @@
 #include "standardnames.h"
 #include "standardpaths.h"
 #include "windowicons.h"
+#include "fullscreenhelper.h"
 
 #ifdef Q_OS_WIN
 #include "windowsdragshakedetector.h"
@@ -80,6 +81,8 @@ int main(int argc, char *argv[])
     LogSink::install();
     QThread::currentThread()->setObjectName("main");
     Logger::instance().log() << "Tokri starting";
+
+    FullscreenHelper::initPlatformPermissions();
 
     QLocalServer server;
     TokriWindow tokriWindow;
@@ -378,7 +381,7 @@ int main(int argc, char *argv[])
         interceptor,
         &WindowsDragShakeDetector::shakeDetected,
         &tokriWindow,
-        &TokriWindow::wakeUp,
+        &TokriWindow::onShakeDetect,
         Qt::QueuedConnection
         );
 #endif
@@ -390,7 +393,7 @@ int main(int argc, char *argv[])
         interceptor,
         &MacOSDragShakeDetector::shakeDetected,
         &tokriWindow,
-        &TokriWindow::wakeUp
+        &TokriWindow::onShakeDetect
         );
 #endif
 
